@@ -14,7 +14,7 @@ export function makeStars(W, H) {
 }
 
 export function makePlayer(W, H) {
-  return { x: W / 2, y: H - 80, w: 28, h: 36, speed: 5, invTime: 0 }
+  return { x: W / 2, y: H - 80, w: 56, h: 72, speed: 5, invTime: 0 }
 }
 
 export function makeDroneWave(wave, W) {
@@ -26,7 +26,7 @@ export function makeDroneWave(wave, W) {
       enemies.push({
         x: 60 + c * (W - 120) / cols,
         y: 60 + r * 52,
-        w: 22, h: 18,
+        w: 48, h: 40,
         hp: 1 + (wave > 3 ? 1 : 0),
         type: 'drone',
         dx: (Math.random() > 0.5 ? 1 : -1) * 0.8,

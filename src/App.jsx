@@ -1,9 +1,10 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import GameCanvas from './components/GameCanvas'
 import HUD from './components/HUD'
 import BossBar from './components/BossBar'
 import WaveMessage from './components/WaveMessage'
 import Overlay from './components/Overlay'
+import MobileControls from './components/MobileControls'
 
 export default function App() {
   const [state, setState] = useState('idle')   // idle | playing | gameover
@@ -12,6 +13,10 @@ export default function App() {
   const [boss, setBoss] = useState({ visible: false, hp: 0, maxHp: 0, tier: 1 })
   const [finalScore, setFinalScore] = useState(0)
   const [finalWave, setFinalWave] = useState(0)
+
+  // mobile input dùng ref để không trigger re-render
+  const mobileMove = useRef({ x: 0, y: 0 })
+  const mobileFire = useRef(false)
 
   const handleStart = useCallback(() => setState('playing'), [])
 
@@ -37,6 +42,8 @@ export default function App() {
         onWaveMsg={setWaveMsg}
         onGameOver={handleGameOver}
         onBossUpdate={setBoss}
+        mobileMove={mobileMove}
+        mobileFire={mobileFire}
       />
       {state === 'playing' && (
         <>
@@ -51,6 +58,12 @@ export default function App() {
         wave={finalWave}
         onStart={handleStart}
       />
+      {state === 'playing' && (
+        <MobileControls
+          onMove={v => { mobileMove.current = v }}
+          onShoot={() => { mobileFire.current = true; setTimeout(() => { mobileFire.current = false }, 80) }}
+        />
+      )}
     </div>
   )
 }

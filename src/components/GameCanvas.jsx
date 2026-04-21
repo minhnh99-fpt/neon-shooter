@@ -8,7 +8,19 @@ import {
 } from '../game/entities'
 import { COLORS, FIRE_RATE_DEFAULT, FIRE_RATE_RAPID, POWERUP_DURATION, SHIELD_DURATION } from '../constants'
 
-export default function GameCanvas({ state, onHUDUpdate, onWaveMsg, onGameOver, onBossUpdate }) {
+// load ảnh 1 lần, dùng lại mỗi frame
+const imgs = {}
+function loadImg(key, src) {
+  if (imgs[key]) return
+  const img = new Image()
+  img.src = src
+  imgs[key] = img
+}
+loadImg('player', '/images/image1.jpg')
+loadImg('enemy',  '/images/image2.jpg')
+loadImg('boss',   '/images/image2.jpg')
+
+export default function GameCanvas({ state, onHUDUpdate, onWaveMsg, onGameOver, onBossUpdate, mobileMove, mobileFire }) {
   const canvasRef = useRef(null)
   const keys = useInput()
 
@@ -86,11 +98,16 @@ export default function GameCanvas({ state, onHUDUpdate, onWaveMsg, onGameOver, 
 
     // player move
     const spd = s.player.speed
-    if ((keys.current['ArrowLeft']  || keys.current['a']) && s.player.x > s.player.w / 2) s.player.x -= spd
-    if ((keys.current['ArrowRight'] || keys.current['d']) && s.player.x < w - s.player.w / 2) s.player.x += spd
-    if ((keys.current['ArrowUp']    || keys.current['w']) && s.player.y > h / 2) s.player.y -= spd
-    if ((keys.current['ArrowDown']  || keys.current['s']) && s.player.y < h - 30) s.player.y += spd
-    if (keys.current[' '] || keys.current['ArrowUp'] || keys.current['w']) playerShoot()
+    const mx = mobileMove.current.x, my = mobileMove.current.y
+    const moveLeft  = keys.current['ArrowLeft']  || keys.current['a'] || mx < -0.2
+    const moveRight = keys.current['ArrowRight'] || keys.current['d'] || mx >  0.2
+    const moveUp    = keys.current['ArrowUp']    || keys.current['w'] || my < -0.2
+    const moveDown  = keys.current['ArrowDown']  || keys.current['s'] || my >  0.2
+    if (moveLeft  && s.player.x > s.player.w / 2)      s.player.x -= spd * (Math.abs(mx) || 1)
+    if (moveRight && s.player.x < w - s.player.w / 2)  s.player.x += spd * (Math.abs(mx) || 1)
+    if (moveUp    && s.player.y > h / 2)                s.player.y -= spd * (Math.abs(my) || 1)
+    if (moveDown  && s.player.y < h - 30)               s.player.y += spd * (Math.abs(my) || 1)
+    if (keys.current[' '] || keys.current['ArrowUp'] || keys.current['w'] || mobileFire.current) playerShoot()
 
     // stars scroll
     for (const st of s.stars) { st.y += st.sp; if (st.y > h) { st.y = 0; st.x = Math.random() * w } }
@@ -155,15 +172,15 @@ export default function GameCanvas({ state, onHUDUpdate, onWaveMsg, onGameOver, 
         e.fireTimer--
         if (e.fireTimer <= 0) {
           e.fireTimer = Math.max(8, 25 - s.wave)
-          if (e.phase === 0) s.eBullets.push({ x: e.x, y: e.y + e.h / 2, vx: 0, vy: 5 })
-          else if (e.phase === 1) for (let a = -1; a <= 1; a++) s.eBullets.push({ x: e.x, y: e.y + e.h / 2, vx: a * 2.5, vy: 5 })
-          else for (let a = -2; a <= 2; a++) s.eBullets.push({ x: e.x, y: e.y + e.h / 2, vx: a * 2, vy: 4.5 })
+          if (e.phase === 0) s.eBullets.push({ x: e.x, y: e.y + e.h / 2, vx: 0, vy: 3 })
+          else if (e.phase === 1) for (let a = -1; a <= 1; a++) s.eBullets.push({ x: e.x, y: e.y + e.h / 2, vx: a * 1.5, vy: 3 })
+          else for (let a = -2; a <= 2; a++) s.eBullets.push({ x: e.x, y: e.y + e.h / 2, vx: a * 1.2, vy: 2.8 })
         }
       } else {
         e.fireTimer--
         if (e.fireTimer <= 0) {
           e.fireTimer = Math.max(20, 80 + Math.floor(Math.random() * 60) - s.wave * 2)
-          s.eBullets.push({ x: e.x, y: e.y + e.h / 2, vx: (Math.random() - 0.5) * 2, vy: 3.5 + s.wave * 0.3 })
+          s.eBullets.push({ x: e.x, y: e.y + e.h / 2, vx: (Math.random() - 0.5) * 1.2, vy: 2 + s.wave * 0.15 })
         }
         if (rectHit(e.x, e.y, e.w, e.h, s.player.x, s.player.y, s.player.w, s.player.h) && s.player.invTime === 0) {
           if (!s.shieldActive) {
@@ -262,38 +279,51 @@ function drawPlayer(ctx, player, shieldActive) {
     ctx.strokeStyle = 'rgba(0,255,255,0.2)'; ctx.lineWidth = 2
     ctx.beginPath(); ctx.ellipse(x, y, w, h * 0.8, 0, 0, Math.PI * 2); ctx.stroke()
   }
-  ctx.shadowColor = '#0ff'; ctx.shadowBlur = 16; ctx.fillStyle = '#0ff'
-  ctx.beginPath()
-  ctx.moveTo(x, y - h / 2); ctx.lineTo(x - w / 2, y + h / 2)
-  ctx.lineTo(x - w / 4, y + h / 3); ctx.lineTo(x, y + h / 4)
-  ctx.lineTo(x + w / 4, y + h / 3); ctx.lineTo(x + w / 2, y + h / 2)
-  ctx.closePath(); ctx.fill()
-  ctx.fillStyle = '#006'; ctx.beginPath(); ctx.ellipse(x, y - 4, 6, 8, 0, 0, Math.PI * 2); ctx.fill()
-  ctx.fillStyle = 'rgba(0,255,255,0.6)'; ctx.beginPath(); ctx.ellipse(x, y - 4, 3, 5, 0, 0, Math.PI * 2); ctx.fill()
+  const img = imgs['player']
+  if (img && img.complete && img.naturalWidth > 0) {
+    ctx.shadowColor = '#0ff'; ctx.shadowBlur = 16
+    ctx.drawImage(img, x - w / 2, y - h / 2, w, h)
+  } else {
+    // fallback shape nếu ảnh chưa load
+    ctx.shadowColor = '#0ff'; ctx.shadowBlur = 16; ctx.fillStyle = '#0ff'
+    ctx.beginPath()
+    ctx.moveTo(x, y - h / 2); ctx.lineTo(x - w / 2, y + h / 2)
+    ctx.lineTo(x, y + h / 4); ctx.lineTo(x + w / 2, y + h / 2)
+    ctx.closePath(); ctx.fill()
+  }
   ctx.restore()
 }
 
 function drawEnemy(ctx, e, bossHP, bossMaxHP) {
   ctx.save()
   if (e.isBoss) {
-    ctx.shadowColor = '#ff0'; ctx.shadowBlur = 24; ctx.fillStyle = '#ff0'
-    ctx.beginPath()
-    ctx.moveTo(e.x, e.y - e.h / 2); ctx.lineTo(e.x + e.w / 2, e.y)
-    ctx.lineTo(e.x + e.w / 3, e.y + e.h / 2); ctx.lineTo(e.x, e.y + e.h / 3)
-    ctx.lineTo(e.x - e.w / 3, e.y + e.h / 2); ctx.lineTo(e.x - e.w / 2, e.y)
-    ctx.closePath(); ctx.fill()
-    ctx.fillStyle = 'rgba(255,0,0,0.25)'
-    ctx.beginPath(); ctx.ellipse(e.x, e.y, e.w * 0.35, e.h * 0.35, 0, 0, Math.PI * 2); ctx.fill()
+    const img = imgs['boss']
+    if (img && img.complete && img.naturalWidth > 0) {
+      ctx.shadowColor = '#ff0'; ctx.shadowBlur = 24
+      ctx.drawImage(img, e.x - e.w / 2, e.y - e.h / 2, e.w, e.h)
+    } else {
+      ctx.shadowColor = '#ff0'; ctx.shadowBlur = 24; ctx.fillStyle = '#ff0'
+      ctx.beginPath()
+      ctx.moveTo(e.x, e.y - e.h / 2); ctx.lineTo(e.x + e.w / 2, e.y)
+      ctx.lineTo(e.x, e.y + e.h / 3); ctx.lineTo(e.x - e.w / 2, e.y)
+      ctx.closePath(); ctx.fill()
+    }
+    // HP bar luôn vẽ đè lên ảnh
     const bw = e.w + 20, bh = 8
     ctx.fillStyle = '#333'; ctx.fillRect(e.x - bw / 2, e.y - e.h / 2 - 16, bw, bh)
     ctx.fillStyle = '#f00'; ctx.fillRect(e.x - bw / 2, e.y - e.h / 2 - 16, bw * (bossHP / bossMaxHP), bh)
   } else {
-    ctx.shadowColor = '#f0f'; ctx.shadowBlur = 14; ctx.fillStyle = '#f0f'
-    ctx.beginPath()
-    ctx.moveTo(e.x, e.y + e.h / 2); ctx.lineTo(e.x - e.w / 2, e.y - e.h / 2)
-    ctx.lineTo(e.x - e.w / 4, e.y - e.h / 4); ctx.lineTo(e.x, e.y)
-    ctx.lineTo(e.x + e.w / 4, e.y - e.h / 4); ctx.lineTo(e.x + e.w / 2, e.y - e.h / 2)
-    ctx.closePath(); ctx.fill()
+    const img = imgs['enemy']
+    if (img && img.complete && img.naturalWidth > 0) {
+      ctx.shadowColor = '#f0f'; ctx.shadowBlur = 14
+      ctx.drawImage(img, e.x - e.w / 2, e.y - e.h / 2, e.w, e.h)
+    } else {
+      ctx.shadowColor = '#f0f'; ctx.shadowBlur = 14; ctx.fillStyle = '#f0f'
+      ctx.beginPath()
+      ctx.moveTo(e.x, e.y + e.h / 2); ctx.lineTo(e.x - e.w / 2, e.y - e.h / 2)
+      ctx.lineTo(e.x, e.y); ctx.lineTo(e.x + e.w / 2, e.y - e.h / 2)
+      ctx.closePath(); ctx.fill()
+    }
   }
   ctx.restore()
 }
